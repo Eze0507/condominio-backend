@@ -1,4 +1,4 @@
-# ERP para taller mecanico
+# CONDOMINIO
 ## clonar repositorio
 git clone [repository url]
 
