@@ -27,7 +27,6 @@ class UserSerializer(serializers.ModelSerializer):
             self.fields['password'].required = False
 
     def get_role(self, obj):
-        """Obtiene el rol del usuario de manera segura"""
         first_group = obj.groups.first()
         return first_group.name if first_group else None
 
@@ -39,7 +38,6 @@ class UserSerializer(serializers.ModelSerializer):
         return value
 
     def validate_email(self, value):
-        # Excluir el usuario actual en caso de actualización
         if self.instance:
             if User.objects.filter(email=value).exclude(pk=self.instance.pk).exists():
                 raise serializers.ValidationError("Este email ya está en uso.")
@@ -58,8 +56,6 @@ class UserSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        """Validación a nivel de serializer"""
-        # Al crear un usuario, el rol es obligatorio
         if not self.instance and not data.get('role_id'):
             raise serializers.ValidationError({
                 'role_id': 'Debe asignar un rol al usuario.'
