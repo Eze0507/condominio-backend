@@ -2,7 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     LogoutView, UserViewSet, RolViewSet,
-    PersonaViewSet, CargoViewSet, EmpleadoViewSet, GroupAuxViewSet
+    PersonaViewSet, CargoViewSet, EmpleadoViewSet, GroupAuxViewSet, PermissionViewSet
 )
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
@@ -16,6 +16,7 @@ router = DefaultRouter()
 router.register(r'users', UserViewSet, basename='users')
 router.register(r'roles', RolViewSet, basename='roles')
 router.register(r'groupsAux', GroupAuxViewSet, basename='groupsAux')
+router.register(r'permissions', PermissionViewSet, basename='permissions')
 
 
 # URLs para CU6: Gestionar Empleado

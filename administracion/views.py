@@ -1,5 +1,5 @@
 from rest_framework import status, viewsets, filters
-from django.contrib.auth.models import User, Group
+from django.contrib.auth.models import User, Group, Permission
 from django.db.models import Q, Count, Avg, Sum
 from django.db.models import ProtectedError
 from django.utils import timezone
@@ -9,7 +9,7 @@ from rest_framework.decorators import action
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from .serializers.serializersUser import UserSerializer, GroupAuxSerializer
-from .serializers.serializersRol import RolSerializer, RolListSerializer
+from .serializers.serializersRol import RolSerializer, RolListSerializer, PermissionSerializer
 from .serializers.serializersEmpleado import (
     PersonaSerializer, CargoSerializer, EmpleadoSerializer, EmpleadoCreateSerializer,
     EmpleadoListSerializer, EmpleadoStatsSerializer
@@ -47,6 +47,10 @@ class UserViewSet(viewsets.ModelViewSet):
 class GroupAuxViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all()
     serializer_class = GroupAuxSerializer
+
+class PermissionViewSet(viewsets.ModelViewSet):
+    queryset = Permission.objects.all()
+    serializer_class = PermissionSerializer
 
 class RolViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all()
