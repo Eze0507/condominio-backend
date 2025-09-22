@@ -172,4 +172,4 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # Permitir que el navegador envíe cookies en peticiones cross-origin
-CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_CREDENTIALS = False
