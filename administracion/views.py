@@ -15,6 +15,10 @@ from .serializers.serializersEmpleado import (
     EmpleadoListSerializer, EmpleadoStatsSerializer
 )
 from .models import Persona, Cargo, Empleado
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
+from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 # Create your views here.
 class LogoutView(APIView):
@@ -201,6 +205,17 @@ class EmpleadoViewSet(viewsets.ModelViewSet):
         empleado.estado_empleado = 'I'
         empleado.save()
         return Response({'message': 'Empleado desactivado correctamente'})
+
+@method_decorator(csrf_exempt, name='dispatch')
+class CustomTokenObtainPairView(TokenObtainPairView):
+    pass
+
+@method_decorator(ensure_csrf_cookie, name='dispatch')
+class CSRFTokenView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        return Response({ "detail": "CSRF cookie set" })
 
 
 

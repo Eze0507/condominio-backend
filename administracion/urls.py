@@ -2,10 +2,9 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     LogoutView, UserViewSet, RolViewSet,
-    PersonaViewSet, CargoViewSet, EmpleadoViewSet, GroupAuxViewSet, PermissionViewSet
+    PersonaViewSet, CargoViewSet, EmpleadoViewSet, GroupAuxViewSet, PermissionViewSet, CustomTokenObtainPairView, CSRFTokenView
 )
 from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
     TokenRefreshView,
 )
 
@@ -26,7 +25,10 @@ router.register(r'empleados', EmpleadoViewSet, basename='empleados')
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    # Usa tu vista personalizada para el login
+    path('login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('logout/', LogoutView.as_view(), name='logout'),
+    # Añade la ruta para la vista del token CSRF
+    path('csrf/', CSRFTokenView.as_view(), name='csrf_token'),
 ]
