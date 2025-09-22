@@ -167,6 +167,7 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "https://condominio-frontend-production.up.railway.app"
+    "https://condominio-backend-production.up.railway.app/"
 ]
 
 # Permitir que el navegador envíe cookies en peticiones cross-origin
