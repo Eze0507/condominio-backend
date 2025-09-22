@@ -195,8 +195,10 @@ class EmpleadoCreateSerializer(serializers.ModelSerializer):
             ultimo_empleado = Empleado.objects.order_by('-numero_empleado').first()
             if ultimo_empleado:
                 try:
-                    siguiente_numero = int(ultimo_empleado.numero_empleado) + 1
-                except ValueError:
+                    # Extraer solo la parte numérica del número de empleado
+                    numero_str = ultimo_empleado.numero_empleado.replace('EMP', '')
+                    siguiente_numero = int(numero_str) + 1
+                except (ValueError, AttributeError):
                     siguiente_numero = 1
             else:
                 siguiente_numero = 1
