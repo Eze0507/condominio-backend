@@ -208,6 +208,7 @@ class EmpleadoViewSet(viewsets.ModelViewSet):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class CustomTokenObtainPairView(TokenObtainPairView):
+    authentication_classes = []
     permission_classes = [AllowAny]
 
 @method_decorator(ensure_csrf_cookie, name='dispatch')
