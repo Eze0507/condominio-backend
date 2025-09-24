@@ -31,7 +31,7 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = ['condominio-backend-production.up.railway.app']
+ALLOWED_HOSTS = ['*','condominio-backend-production.up.railway.app']
 
 
 # Application definition
