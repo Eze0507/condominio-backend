@@ -1,186 +1,365 @@
-from rest_framework import status, viewsets, filters
+from rest_framework import status, viewsets, filters, generics
 from django.db.models import Q, Count, Avg
 from django.db.models import ProtectedError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.decorators import action
-from .serializers.serializersPropietario import (
-    PropietarioSerializer, PropietarioCreateSerializer, PropietarioListSerializer,
-    BloqueSerializer, UnidadSerializer, PropietarioStatsSerializer
-)
-from .models import Propietario, Bloque, Unidad
 from administracion.models import Persona
+from administracion.serializers.serializersPersona import (
+    PersonaSerializer, PropietarioSerializer, VisitanteSerializer
+)
+from .models import Inquilino, Familiares, Visitante, Mascota
+from .serializers.serializersInquilino import InquilinoSerializer, InquilinoListSerializer
+from .serializers.serializersFamiliares import FamiliaresSerializer, FamiliaresListSerializer
+from .serializers.serializersMascota import MascotaSerializer, MascotaListSerializer
+import requests
+from django.conf import settings
 
 # Create your views here.
 
-# ==================== VISTAS PARA CU9: GESTIONAR PROPIETARIOS ====================
+# ==================== VISTAS ESPECÍFICAS POR TIPO DE PERSONA ====================
 
 class PropietarioViewSet(viewsets.ModelViewSet):
     """
-    ViewSet para gestionar propietarios
-    SIN AUTENTICACIÓN - Acceso libre
+    ViewSet para CRUD completo de propietarios con subida de imágenes a ImgBB
     """
-    queryset = Propietario.objects.select_related('persona').all()
+    serializer_class = PropietarioSerializer
+    queryset = Persona.objects.filter(tipo='P')
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['nombre', 'apellido', 'CI', 'telefono']
+    ordering_fields = ['nombre', 'apellido', 'fecha_registro', 'CI']
+    ordering = ['apellido', 'nombre']
+    
+    def perform_create(self, serializer):
+        serializer.save(tipo='P')
+    
+    def perform_update(self, serializer):
+        # Mantener el tipo como 'P' al actualizar
+        serializer.save(tipo='P')
+    
+    def create(self, request, *args, **kwargs):
+        """
+        Crear propietario con subida de imagen a ImgBB
+        """
+        return self.handle_image_upload(request, super().create, *args, **kwargs)
+    
+    def update(self, request, *args, **kwargs):
+        """
+        Actualizar propietario con subida de imagen a ImgBB
+        """
+        return self.handle_image_upload(request, super().update, *args, **kwargs)
+    
+    def handle_image_upload(self, request, action, *args, **kwargs):
+        """
+        Maneja la subida de imágenes a ImgBB API
+        """
+        imagen_file = request.FILES.get('imagen')
+        
+        if imagen_file:
+            # Subir imagen a ImgBB
+            url = "https://api.imgbb.com/1/upload"
+            payload = {"key": settings.IMGBB_API_KEY}
+            files = {"image": imagen_file.read()}
+            
+            response = requests.post(url, payload, files=files)
+            
+            if response.status_code == 200:
+                # Extraer URL de la imagen subida
+                image_url = response.json()["data"]["url"]
+                
+                # Actualizar los datos de la request con la URL de la imagen
+                data = request.data.copy()
+                data["imagen"] = image_url
+                request._full_data = data
+            else:
+                return Response(
+                    {"error": "Error al subir imagen a ImgBB"}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        else:
+            # Si no se sube nueva imagen en PUT/PATCH, mantener la existente
+            if request.method in ["PUT", "PATCH"]:
+                instance = self.get_object()
+                data = request.data.copy()
+                if not data.get("imagen"):
+                    data["imagen"] = instance.imagen
+                request._full_data = data
+        
+        return action(request, *args, **kwargs)
+
+
+class InquilinoViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para CRUD completo de inquilinos que hereda de Persona
+    """
+    queryset = Inquilino.objects.select_related('propietario').all()
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = [
-        'persona__nombre', 'persona__apellido', 'persona__CI', 
-        'email_alternativo', 'telefono_alternativo'
+        'nombre', 'apellido', 'CI', 'telefono',
+        'propietario__nombre', 'propietario__apellido', 'propietario__CI'
     ]
     ordering_fields = [
-        'persona__apellido', 'persona__nombre', 'fecha_registro_propietario',
-        'tipo_propietario', 'estado_propietario', 'porcentaje_propiedad'
+        'fecha_inicio', 'fecha_fin', 'estado_inquilino', 'fecha_registro',
+        'apellido', 'propietario__apellido'
     ]
-    ordering = ['persona__apellido', 'persona__nombre']
+    ordering = ['-fecha_registro']
     
     def get_serializer_class(self):
         if self.action == 'list':
-            return PropietarioListSerializer
-        elif self.action == 'create':
-            return PropietarioCreateSerializer
-        return PropietarioSerializer
+            return InquilinoListSerializer
+        return InquilinoSerializer
     
     def get_queryset(self):
         """
-        Filtrar propietarios por diferentes criterios
+        Filtrar inquilinos por diferentes criterios
         """
         queryset = super().get_queryset()
         
-        # Filtrar por tipo de propietario
-        tipo = self.request.query_params.get('tipo', None)
-        if tipo:
-            queryset = queryset.filter(tipo_propietario=tipo)
-        
-        # Filtrar por estado del propietario
-        estado = self.request.query_params.get('estado', None)
-        if estado:
-            queryset = queryset.filter(estado_propietario=estado)
-        
-        # Filtrar por rango de porcentaje de propiedad
-        porcentaje_min = self.request.query_params.get('porcentaje_min', None)
-        porcentaje_max = self.request.query_params.get('porcentaje_max', None)
-        if porcentaje_min:
-            queryset = queryset.filter(porcentaje_propiedad__gte=porcentaje_min)
-        if porcentaje_max:
-            queryset = queryset.filter(porcentaje_propiedad__lte=porcentaje_max)
-        
-        return queryset
-    
-    @action(detail=False, methods=['get'])
-    def estadisticas(self, request):
-        """
-        Obtener estadísticas de propietarios
-        """
-        queryset = self.get_queryset()
-        
-        stats = {
-            'total_propietarios': queryset.count(),
-            'propietarios_activos': queryset.filter(estado_propietario='A').count(),
-            'propietarios_inactivos': queryset.filter(estado_propietario='I').count(),
-            'total_copropietarios': queryset.filter(tipo_propietario='C').count(),
-            'total_arrendatarios': queryset.filter(tipo_propietario='A').count(),
-            'promedio_porcentaje_propiedad': queryset.aggregate(promedio=Avg('porcentaje_propiedad'))['promedio'] or 0,
-            'propietarios_con_contratos_activos': queryset.filter(
-                contrato__estado='A'
-            ).distinct().count(),
-        }
-        
-        serializer = PropietarioStatsSerializer(stats)
-        return Response(serializer.data)
-    
-    
-    @action(detail=True, methods=['post'])
-    def activar(self, request, pk=None):
-        """
-        Activar un propietario
-        """
-        propietario = self.get_object()
-        propietario.estado_propietario = 'A'
-        propietario.save()
-        return Response({'message': 'Propietario activado correctamente'})
-    
-    @action(detail=True, methods=['post'])
-    def desactivar(self, request, pk=None):
-        """
-        Desactivar un propietario
-        """
-        propietario = self.get_object()
-        propietario.estado_propietario = 'I'
-        propietario.save()
-        return Response({'message': 'Propietario desactivado correctamente'})
-
-
-class BloqueViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet para gestionar bloques
-    SIN AUTENTICACIÓN - Acceso libre
-    """
-    queryset = Bloque.objects.all()
-    serializer_class = BloqueSerializer
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['nombre', 'descripcion']
-    ordering_fields = ['nombre', 'numero_pisos', 'fecha_creacion']
-    ordering = ['nombre']
-    
-    def get_queryset(self):
-        """
-        Filtrar bloques por estado activo si se especifica
-        """
-        queryset = super().get_queryset()
-        estado = self.request.query_params.get('estado', None)
-        if estado is not None:
-            queryset = queryset.filter(estado=estado.lower() == 'true')
-        return queryset
-    
-    @action(detail=True, methods=['get'])
-    def unidades(self, request, pk=None):
-        """
-        Obtener unidades de un bloque específico
-        """
-        bloque = self.get_object()
-        unidades = Unidad.objects.filter(bloque=bloque).order_by('numero_piso', 'numero')
-        serializer = UnidadSerializer(unidades, many=True)
-        return Response(serializer.data)
-
-
-class UnidadViewSet(viewsets.ModelViewSet):
-    """
-    ViewSet para gestionar unidades
-    SIN AUTENTICACIÓN - Acceso libre
-    """
-    queryset = Unidad.objects.select_related('bloque').all()
-    serializer_class = UnidadSerializer
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['numero', 'codigo', 'descripcion', 'bloque__nombre']
-    ordering_fields = ['numero', 'codigo', 'numero_piso', 'area_m2', 'fecha_creacion']
-    ordering = ['bloque__nombre', 'numero_piso', 'numero']
-    
-    def get_queryset(self):
-        """
-        Filtrar unidades por diferentes criterios
-        """
-        queryset = super().get_queryset()
-        
-        # Filtrar por bloque
-        bloque = self.request.query_params.get('bloque', None)
-        if bloque:
-            queryset = queryset.filter(bloque_id=bloque)
-        
-        # Filtrar por estado
+        # Filtrar por estado del inquilino
         estado = self.request.query_params.get('estado', None)
         if estado:
             queryset = queryset.filter(estado=estado)
         
-        # Filtrar por tipo de unidad
-        tipo = self.request.query_params.get('tipo', None)
-        if tipo:
-            queryset = queryset.filter(tipo_unidad=tipo)
+        # Filtrar por estado específico del inquilino
+        estado_inquilino = self.request.query_params.get('estado_inquilino', None)
+        if estado_inquilino:
+            queryset = queryset.filter(estado_inquilino=estado_inquilino)
         
-        # Filtrar por piso
-        piso = self.request.query_params.get('piso', None)
-        if piso:
-            queryset = queryset.filter(numero_piso=piso)
+        # Filtrar por propietario específico
+        propietario = self.request.query_params.get('propietario', None)
+        if propietario:
+            queryset = queryset.filter(propietario_id=propietario)
         
         return queryset
     
+    def create(self, request, *args, **kwargs):
+        """
+        Crear inquilino con subida de imagen a ImgBB
+        """
+        return self.handle_image_upload(request, super().create, *args, **kwargs)
+    
+    def update(self, request, *args, **kwargs):
+        """
+        Actualizar inquilino con subida de imagen a ImgBB
+        """
+        return self.handle_image_upload(request, super().update, *args, **kwargs)
+    
+    def handle_image_upload(self, request, action, *args, **kwargs):
+        """
+        Maneja la subida de imágenes a ImgBB API
+        """
+        imagen_file = request.FILES.get('imagen')
+        
+        if imagen_file:
+            # Subir imagen a ImgBB
+            url = "https://api.imgbb.com/1/upload"
+            payload = {"key": settings.IMGBB_API_KEY}
+            files = {"image": imagen_file.read()}
+            
+            response = requests.post(url, payload, files=files)
+            
+            if response.status_code == 200:
+                # Extraer URL de la imagen subida
+                image_url = response.json()["data"]["url"]
+                
+                # Actualizar los datos de la request con la URL de la imagen
+                data = request.data.copy()
+                data["imagen"] = image_url
+                request._full_data = data
+            else:
+                return Response(
+                    {"error": "Error al subir imagen a ImgBB"}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        else:
+            # Si no se sube nueva imagen en PUT/PATCH, mantener la existente
+            if request.method in ["PUT", "PATCH"]:
+                instance = self.get_object()
+                data = request.data.copy()
+                if not data.get("imagen"):
+                    data["imagen"] = instance.imagen
+                request._full_data = data
+        
+        return action(request, *args, **kwargs)
 
+
+class FamiliaresViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para CRUD completo de familiares que hereda de Persona
+    """
+    queryset = Familiares.objects.select_related('persona_relacionada').all()
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = [
+        'nombre', 'apellido', 'CI', 'telefono',
+        'persona_relacionada__nombre', 'persona_relacionada__apellido', 'persona_relacionada__CI'
+    ]
+    ordering_fields = [
+        'parentesco', 'fecha_registro', 'apellido', 'persona_relacionada__apellido'
+    ]
+    ordering = ['-fecha_registro']
+    
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return FamiliaresListSerializer
+        return FamiliaresSerializer
+    
+    def get_queryset(self):
+        """
+        Filtrar familiares por diferentes criterios
+        """
+        queryset = super().get_queryset()
+        
+        # Filtrar por estado del familiar
+        estado = self.request.query_params.get('estado', None)
+        if estado:
+            queryset = queryset.filter(estado=estado)
+        
+        # Filtrar por parentesco
+        parentesco = self.request.query_params.get('parentesco', None)
+        if parentesco:
+            queryset = queryset.filter(parentesco=parentesco)
+        
+        # Filtrar por persona relacionada específica
+        persona_relacionada = self.request.query_params.get('persona_relacionada', None)
+        if persona_relacionada:
+            queryset = queryset.filter(persona_relacionada_id=persona_relacionada)
+        
+        return queryset
+    
+    def create(self, request, *args, **kwargs):
+        """
+        Crear familiar con subida de imagen a ImgBB
+        """
+        return self.handle_image_upload(request, super().create, *args, **kwargs)
+    
+    def update(self, request, *args, **kwargs):
+        """
+        Actualizar familiar con subida de imagen a ImgBB
+        """
+        return self.handle_image_upload(request, super().update, *args, **kwargs)
+    
+    def handle_image_upload(self, request, action, *args, **kwargs):
+        """
+        Maneja la subida de imágenes a ImgBB API
+        """
+        imagen_file = request.FILES.get('imagen')
+        
+        if imagen_file:
+            # Subir imagen a ImgBB
+            url = "https://api.imgbb.com/1/upload"
+            payload = {"key": settings.IMGBB_API_KEY}
+            files = {"image": imagen_file.read()}
+            
+            response = requests.post(url, payload, files=files)
+            
+            if response.status_code == 200:
+                # Extraer URL de la imagen subida
+                image_url = response.json()["data"]["url"]
+                
+                # Actualizar los datos de la request con la URL de la imagen
+                data = request.data.copy()
+                data["imagen"] = image_url
+                request._full_data = data
+            else:
+                return Response(
+                    {"error": "Error al subir imagen a ImgBB"}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        else:
+            # Si no se sube nueva imagen en PUT/PATCH, mantener la existente
+            if request.method in ["PUT", "PATCH"]:
+                instance = self.get_object()
+                data = request.data.copy()
+                if not data.get("imagen"):
+                    data["imagen"] = instance.imagen
+                request._full_data = data
+        
+        return action(request, *args, **kwargs)
+
+    @action(detail=False, methods=['get'])
+    def personas_disponibles(self, request):
+        """
+        Obtener personas de tipo P (propietarios) e I (inquilinos) para seleccionar como persona relacionada
+        """
+        personas = Persona.objects.filter(tipo__in=['P', 'I']).values(
+            'id', 'nombre', 'apellido', 'CI', 'tipo'
+        )
+        
+        # Agregar nombre_completo calculado
+        personas_data = []
+        for persona in personas:
+            persona_data = dict(persona)
+            persona_data['nombre_completo'] = f"{persona['nombre']} {persona['apellido']}"
+            personas_data.append(persona_data)
+        
+        return Response(personas_data)
+
+
+class VisitanteViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para CRUD completo de visitantes con subida de imágenes a ImgBB
+    """
+    serializer_class = VisitanteSerializer
+    queryset = Persona.objects.filter(tipo='V')
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['nombre', 'apellido', 'CI', 'telefono']
+    ordering_fields = ['nombre', 'apellido', 'fecha_registro', 'CI']
+    ordering = ['apellido', 'nombre']
+    
+    def perform_create(self, serializer):
+        serializer.save(tipo='V')
+    
+    def perform_update(self, serializer):
+        # Mantener el tipo como 'V' al actualizar
+        serializer.save(tipo='V')
+    
+    def create(self, request, *args, **kwargs):
+        """
+        Crear visitante con subida de imagen a ImgBB
+        """
+        return self.handle_image_upload(request, super().create, *args, **kwargs)
+    
+    def update(self, request, *args, **kwargs):
+        """
+        Actualizar visitante con subida de imagen a ImgBB
+        """
+        return self.handle_image_upload(request, super().update, *args, **kwargs)
+    
+    def handle_image_upload(self, request, action, *args, **kwargs):
+        """
+        Maneja la subida de imágenes a ImgBB API
+        """
+        imagen_file = request.FILES.get('imagen')
+        
+        if imagen_file:
+            # Subir imagen a ImgBB
+            url = "https://api.imgbb.com/1/upload"
+            payload = {"key": settings.IMGBB_API_KEY}
+            files = {"image": imagen_file.read()}
+            
+            response = requests.post(url, payload, files=files)
+            
+            if response.status_code == 200:
+                # Extraer URL de la imagen subida
+                image_url = response.json()["data"]["url"]
+                
+                # Actualizar los datos de la request con la URL de la imagen
+                data = request.data.copy()
+                data["imagen"] = image_url
+                request._full_data = data
+            else:
+                return Response(
+                    {"error": "Error al subir imagen a ImgBB"}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        else:
+            # Si no se sube nueva imagen en PUT/PATCH, mantener la existente
+            if request.method in ["PUT", "PATCH"]:
+                instance = self.get_object()
+                data = request.data.copy()
+                if not data.get("imagen"):
+                    data["imagen"] = instance.imagen
+                request._full_data = data
+        
+        return action(request, *args, **kwargs)
 

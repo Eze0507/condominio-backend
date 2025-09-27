@@ -17,14 +17,16 @@ router.register(r'roles', RolViewSet, basename='roles')
 router.register(r'groupsAux', GroupAuxViewSet, basename='groupsAux')
 router.register(r'permissions', PermissionViewSet, basename='permissions')
 
-
-# URLs para CU6: Gestionar Empleado
+# URLs para gestionar personas
 router.register(r'personas', PersonaViewSet, basename='personas')
+
+# URLs para gestionar empleados
 router.register(r'cargos', CargoViewSet, basename='cargos')
 router.register(r'empleados', EmpleadoViewSet, basename='empleados')
 
 urlpatterns = [
     path('', include(router.urls)),
+    
     # Usa tu vista personalizada para el login
     path('login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('refresh/', TokenRefreshView.as_view(), name='token_refresh'),

@@ -17,6 +17,8 @@ from datetime import timedelta
 import os
 
 
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -143,7 +145,7 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",   # Bearer
     ),
     "DEFAULT_PERMISSION_CLASSES": (
-        "rest_framework.permissions.IsAuthenticated",  # todo requiere auth por defecto
+        "rest_framework.permissions.AllowAny",  # todo requiere auth por defecto
     ),
 }
 
@@ -173,3 +175,6 @@ CSRF_TRUSTED_ORIGINS = [
 
 # Permitir que el navegador envíe cookies en peticiones cross-origin
 CORS_ALLOW_CREDENTIALS = False
+
+# Configuración de ImgBB API
+IMGBB_API_KEY = config('IMGBB_API_KEY', default='')

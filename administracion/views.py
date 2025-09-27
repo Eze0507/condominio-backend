@@ -1,4 +1,4 @@
-from rest_framework import status, viewsets, filters
+from rest_framework import status, viewsets, filters, generics
 from django.contrib.auth.models import User, Group, Permission
 from django.db.models import Q, Count, Avg, Sum
 from django.db.models import ProtectedError
@@ -10,15 +10,15 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from .serializers.serializersUser import UserSerializer, GroupAuxSerializer
 from .serializers.serializersRol import RolSerializer, RolListSerializer, PermissionSerializer
-from .serializers.serializersEmpleado import (
-    PersonaSerializer, CargoSerializer, EmpleadoSerializer, EmpleadoCreateSerializer,
-    EmpleadoListSerializer, EmpleadoStatsSerializer
-)
+from .serializers.serializersPersona import PersonaSerializer
+from .serializers.serializersEmpleado import CargoSerializer, EmpleadoSerializer, EmpleadoListSerializer
 from .models import Persona, Cargo, Empleado
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 from rest_framework.permissions import AllowAny
 from rest_framework_simplejwt.views import TokenObtainPairView
+import requests
+from django.conf import settings
 
 # Create your views here.
 class LogoutView(APIView):
@@ -65,11 +65,11 @@ class RolViewSet(viewsets.ModelViewSet):
         return RolSerializer          
 
 
-# ==================== VISTAS PARA CU6: GESTIONAR EMPLEADO ====================
+# ==================== VISTAS PARA GESTIONAR PERSONAS ====================
 
 class PersonaViewSet(viewsets.ModelViewSet):
     """
-    ViewSet para gestionar personas
+    ViewSet para gestionar personas con subida de imágenes a ImgBB
     """
     queryset = Persona.objects.all()
     serializer_class = PersonaSerializer
@@ -87,7 +87,59 @@ class PersonaViewSet(viewsets.ModelViewSet):
         if tipo:
             queryset = queryset.filter(tipo=tipo)
         return queryset
+    
+    def create(self, request, *args, **kwargs):
+        """
+        Crear persona con subida de imagen a ImgBB
+        """
+        return self.handle_image_upload(request, super().create, *args, **kwargs)
+    
+    def update(self, request, *args, **kwargs):
+        """
+        Actualizar persona con subida de imagen a ImgBB
+        """
+        return self.handle_image_upload(request, super().update, *args, **kwargs)
+    
+    def handle_image_upload(self, request, action, *args, **kwargs):
+        """
+        Maneja la subida de imágenes a ImgBB API
+        """
+        imagen_file = request.FILES.get('imagen')
+        
+        if imagen_file:
+            # Subir imagen a ImgBB
+            url = "https://api.imgbb.com/1/upload"
+            payload = {"key": settings.IMGBB_API_KEY}
+            files = {"image": imagen_file.read()}
+            
+            response = requests.post(url, payload, files=files)
+            
+            if response.status_code == 200:
+                # Extraer URL de la imagen subida
+                image_url = response.json()["data"]["url"]
+                
+                # Actualizar los datos de la request con la URL de la imagen
+                data = request.data.copy()
+                data["imagen"] = image_url
+                request._full_data = data
+            else:
+                return Response(
+                    {"error": "Error al subir imagen a ImgBB"}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        else:
+            # Si no se sube nueva imagen en PUT/PATCH, mantener la existente
+            if request.method in ["PUT", "PATCH"]:
+                instance = self.get_object()
+                data = request.data.copy()
+                if not data.get("imagen"):
+                    data["imagen"] = instance.imagen
+                request._full_data = data
+        
+        return action(request, *args, **kwargs)
 
+
+# ==================== VISTAS PARA GESTIONAR EMPLEADOS ====================
 
 class CargoViewSet(viewsets.ModelViewSet):
     """
@@ -96,41 +148,27 @@ class CargoViewSet(viewsets.ModelViewSet):
     queryset = Cargo.objects.all()
     serializer_class = CargoSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['nombre', 'descripcion']
-    ordering_fields = ['nombre', 'salario_base', 'fecha_creacion']
+    search_fields = ['nombre']
+    ordering_fields = ['nombre']
     ordering = ['nombre']
-    
-    def get_queryset(self):
-        """
-        Filtrar por estado activo si se especifica
-        """
-        queryset = super().get_queryset()
-        estado = self.request.query_params.get('estado', None)
-        if estado is not None:
-            queryset = queryset.filter(estado=estado.lower() == 'true')
-        return queryset
 
 
 class EmpleadoViewSet(viewsets.ModelViewSet):
     """
-    ViewSet para gestionar empleados
+    ViewSet para gestionar empleados con subida de imágenes a ImgBB
     """
-    queryset = Empleado.objects.select_related('persona', 'cargo').all()
+    queryset = Empleado.objects.select_related('cargo').all()
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = [
-        'persona__nombre', 'persona__apellido', 'persona__CI', 
-        'numero_empleado', 'cargo__nombre'
+        'nombre', 'apellido', 'CI', 'cargo__nombre'
     ]
     ordering_fields = [
-        'persona__apellido', 'persona__nombre', 'fecha_ingreso', 
-        'sueldo', 'estado_empleado'
+        'apellido', 'nombre', 'sueldo', 'estado'
     ]
-    ordering = ['persona__apellido', 'persona__nombre']
+    ordering = ['apellido', 'nombre']
     
     def get_serializer_class(self):
-        if self.action == 'create':
-            return EmpleadoCreateSerializer
-        elif self.action == 'list':
+        if self.action == 'list':
             return EmpleadoListSerializer
         return EmpleadoSerializer
     
@@ -143,7 +181,7 @@ class EmpleadoViewSet(viewsets.ModelViewSet):
         # Filtrar por estado del empleado
         estado = self.request.query_params.get('estado', None)
         if estado:
-            queryset = queryset.filter(estado_empleado=estado)
+            queryset = queryset.filter(estado=estado)
         
         # Filtrar por cargo
         cargo = self.request.query_params.get('cargo', None)
@@ -160,51 +198,58 @@ class EmpleadoViewSet(viewsets.ModelViewSet):
         
         return queryset
     
-    @action(detail=False, methods=['get'])
-    def estadisticas(self, request):
+    def create(self, request, *args, **kwargs):
         """
-        Obtener estadísticas de empleados
+        Crear empleado con subida de imagen a ImgBB
         """
-        queryset = self.get_queryset()
-        
-        stats = {
-            'total_empleados': queryset.count(),
-            'empleados_activos': queryset.filter(estado_empleado='A').count(),
-            'empleados_inactivos': queryset.filter(estado_empleado='I').count(),
-            'total_sueldos': queryset.aggregate(total=Sum('sueldo'))['total'] or 0,
-            'promedio_sueldo': queryset.aggregate(promedio=Avg('sueldo'))['promedio'] or 0,
-        }
-        
-        # Cargo más común
-        cargo_mas_comun = queryset.values('cargo__nombre').annotate(
-            count=Count('cargo')
-        ).order_by('-count').first()
-        
-        stats['cargo_mas_comun'] = cargo_mas_comun['cargo__nombre'] if cargo_mas_comun else 'N/A'
-        
-        serializer = EmpleadoStatsSerializer(stats)
-        return Response(serializer.data)
+        return self.handle_image_upload(request, super().create, *args, **kwargs)
     
+    def update(self, request, *args, **kwargs):
+        """
+        Actualizar empleado con subida de imagen a ImgBB
+        """
+        return self.handle_image_upload(request, super().update, *args, **kwargs)
     
-    @action(detail=True, methods=['post'])
-    def activar(self, request, pk=None):
+    def handle_image_upload(self, request, action, *args, **kwargs):
         """
-        Activar un empleado
+        Maneja la subida de imágenes a ImgBB API
         """
-        empleado = self.get_object()
-        empleado.estado_empleado = 'A'
-        empleado.save()
-        return Response({'message': 'Empleado activado correctamente'})
-    
-    @action(detail=True, methods=['post'])
-    def desactivar(self, request, pk=None):
-        """
-        Desactivar un empleado
-        """
-        empleado = self.get_object()
-        empleado.estado_empleado = 'I'
-        empleado.save()
-        return Response({'message': 'Empleado desactivado correctamente'})
+        imagen_file = request.FILES.get('imagen')
+        
+        if imagen_file:
+            # Subir imagen a ImgBB
+            url = "https://api.imgbb.com/1/upload"
+            payload = {"key": settings.IMGBB_API_KEY}
+            files = {"image": imagen_file.read()}
+            
+            response = requests.post(url, payload, files=files)
+            
+            if response.status_code == 200:
+                # Extraer URL de la imagen subida
+                image_url = response.json()["data"]["url"]
+                
+                # Actualizar los datos de la request con la URL de la imagen
+                data = request.data.copy()
+                data["imagen"] = image_url
+                request._full_data = data
+            else:
+                return Response(
+                    {"error": "Error al subir imagen a ImgBB"}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        else:
+            # Si no se sube nueva imagen en PUT/PATCH, mantener la existente
+            if request.method in ["PUT", "PATCH"]:
+                instance = self.get_object()
+                data = request.data.copy()
+                if not data.get("imagen"):
+                    data["imagen"] = instance.imagen
+                request._full_data = data
+        
+        return action(request, *args, **kwargs)
+
+
+
 
 @method_decorator(csrf_exempt, name='dispatch')
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -217,6 +262,3 @@ class CSRFTokenView(APIView):
 
     def get(self, request):
         return Response({ "detail": "CSRF cookie set" })
-
-
-
