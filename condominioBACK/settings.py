@@ -178,3 +178,5 @@ CORS_ALLOW_CREDENTIALS = False
 
 # Configuración de ImgBB API
 IMGBB_API_KEY = config('IMGBB_API_KEY', default='')
+PLATE_TOKEN = config("PLATE_TOKEN")
+PLATE_REGIONS = config("PLATE_REGIONS", default="bo")

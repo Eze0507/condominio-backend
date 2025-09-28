@@ -46,37 +46,6 @@ class Inquilino(Persona):
     def __str__(self):
         return f"{self.nombre_completo} (Inquilino) - Propietario: {self.propietario.nombre_completo}"
 
-
-class Vehiculo(models.Model):
-    TIPO_CHOICES = [
-        ('Automóvil', 'Automóvil'),
-        ('Camioneta', 'Camioneta'),
-        ('SUV', 'SUV'),
-        ('Motocicleta', 'Motocicleta'),
-        ('Furgoneta', 'Furgoneta'),
-        ('Crossover', 'Crossover'),
-    ]
-    
-    id = models.AutoField(primary_key=True)
-    color = models.CharField(max_length=20, verbose_name='Color')
-    marca = models.CharField(max_length=20, verbose_name='Marca')
-    modelo = models.CharField(max_length=20, verbose_name='Modelo')
-    placa = models.CharField(max_length=20, verbose_name='Placa')
-    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, verbose_name='Tipo')
-    imagen = models.URLField(blank=True, null=True, verbose_name='Imagen')
-    fecha_registro = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de Registro')
-    persona = models.ForeignKey('administracion.Persona',on_delete=models.CASCADE,verbose_name='Propietario')
-    
-    class Meta:
-        db_table = 'vehiculo'
-        verbose_name = "Vehículo"
-        verbose_name_plural = "Vehículos"
-        ordering = ['marca', 'modelo']
-    
-    def __str__(self):
-        return f"{self.marca} {self.modelo} - {self.placa}"
-
-
 class Familiares(Persona):
     """
     Modelo para familiares que hereda de Persona y tiene relación con otra persona

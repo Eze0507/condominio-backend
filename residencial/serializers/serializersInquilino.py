@@ -1,9 +1,12 @@
 from rest_framework import serializers
-from ..models import Inquilino, Vehiculo
+from ..models import Inquilino
 from administracion.models import Persona
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 from datetime import date
+from ..modelsVehiculo import Vehiculo
+
+
 
 
 class InquilinoSerializer(serializers.ModelSerializer):
