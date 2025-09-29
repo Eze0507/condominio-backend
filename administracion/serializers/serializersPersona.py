@@ -10,15 +10,15 @@ class PersonaSerializer(serializers.ModelSerializer):
     Serializer para el modelo Persona (incluye el campo tipo)
     """
     nombre_completo = serializers.ReadOnlyField()
-    
+    luxand_uuid = serializers.ReadOnlyField()
     class Meta:
         model = Persona
         fields = [
             'id', 'nombre', 'apellido', 'telefono', 'imagen', 'estado', 
             'sexo', 'tipo', 'fecha_registro', 'CI', 'fecha_nacimiento', 
-            'nombre_completo'
+            'nombre_completo', 'luxand_uuid'
         ]
-        read_only_fields = ['id', 'fecha_registro']
+        read_only_fields = ['id', 'fecha_registro', 'luxand_uuid']
     
     def validate_CI(self, value):
         """
@@ -46,15 +46,15 @@ class PersonaSinTipoSerializer(serializers.ModelSerializer):
     Serializer base para personas sin el campo tipo (se asigna automáticamente)
     """
     nombre_completo = serializers.ReadOnlyField()
-    
+    luxand_uuid = serializers.ReadOnlyField()
     class Meta:
         model = Persona
         fields = [
             'id', 'nombre', 'apellido', 'telefono', 'imagen', 'estado', 
             'sexo', 'fecha_registro', 'CI', 'fecha_nacimiento', 
-            'nombre_completo'
+            'nombre_completo', 'luxand_uuid'
         ]
-        read_only_fields = ['id', 'fecha_registro']
+        read_only_fields = ['id', 'fecha_registro', 'luxand_uuid']
     
     def validate_CI(self, value):
         """

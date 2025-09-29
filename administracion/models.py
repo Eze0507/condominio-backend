@@ -40,6 +40,7 @@ class Persona(models.Model):
     fecha_registro = models.DateTimeField(default=timezone.now, verbose_name="Fecha de Registro")
     CI = models.CharField(max_length=20, unique=True, verbose_name="Cédula de Identidad")
     fecha_nacimiento = models.DateField(verbose_name="Fecha de Nacimiento")
+    luxand_uuid = models.CharField(max_length=64, blank=True, null=True)
     
     class Meta:
         db_table = 'persona'
@@ -101,6 +102,7 @@ class Empleado(models.Model):
     sueldo = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Sueldo")
     imagen = models.URLField(blank=True, null=True, verbose_name='Imagen')
     fecha_registro = models.DateTimeField(default=timezone.now, verbose_name="Fecha de Registro")
+    luxand_uuid = models.CharField(max_length=64, blank=True, null=True)
     
     # Relación con Cargo
     cargo = models.ForeignKey(
