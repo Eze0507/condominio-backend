@@ -5,6 +5,7 @@ from django.utils import timezone
 from datetime import date
 
 
+
 class CargoSerializer(serializers.ModelSerializer):
     """
     Serializer para el modelo Cargo
@@ -40,15 +41,16 @@ class EmpleadoSerializer(serializers.ModelSerializer):
     """
     cargo_nombre = serializers.CharField(source='cargo.nombre', read_only=True)
     nombre_completo = serializers.ReadOnlyField()
+    luxand_uuid = serializers.ReadOnlyField()
     
     class Meta:
         model = Empleado
         fields = [
             'id', 'nombre', 'apellido', 'telefono', 'direccion', 'sexo', 'CI', 
             'fecha_nacimiento', 'estado', 'sueldo', 'imagen', 'fecha_registro', 'cargo', 'cargo_nombre', 
-            'nombre_completo'
+            'nombre_completo', 'luxand_uuid'
         ]
-    
+        read_only_fields = ['id', 'fecha_registro', 'luxand_uuid']
     def validate_CI(self, value):
         """
         Validar que la cédula sea única
@@ -68,6 +70,14 @@ class EmpleadoSerializer(serializers.ModelSerializer):
         if value <= 0:
             raise serializers.ValidationError("El sueldo debe ser mayor a 0.")
         return value
+    
+    def validate_cargo(self, value):
+        """
+        Validar que el cargo exista
+        """
+        if not value:
+            raise serializers.ValidationError("El cargo es requerido.")
+        return value
 
 
 class EmpleadoListSerializer(serializers.ModelSerializer):
@@ -76,11 +86,12 @@ class EmpleadoListSerializer(serializers.ModelSerializer):
     """
     cargo_nombre = serializers.CharField(source='cargo.nombre', read_only=True)
     nombre_completo = serializers.ReadOnlyField()
-    
+    luxand_uuid = serializers.ReadOnlyField()
     class Meta:
         model = Empleado
         fields = [
             'id', 'nombre', 'apellido', 'nombre_completo', 'telefono', 'direccion', 
             'sexo', 'CI', 'fecha_nacimiento', 'estado', 'sueldo', 'imagen', 'fecha_registro',
-            'cargo', 'cargo_nombre'
+            'cargo', 'cargo_nombre', 'luxand_uuid'
         ]
+        read_only_fields = ['id', 'fecha_registro', 'luxand_uuid']

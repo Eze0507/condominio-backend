@@ -15,19 +15,21 @@ class InquilinoSerializer(serializers.ModelSerializer):
     """
     propietario_nombre = serializers.CharField(source='propietario.nombre_completo', read_only=True)
     propietario_ci = serializers.CharField(source='propietario.CI', read_only=True)
+    nombre_completo = serializers.ReadOnlyField()
+    luxand_uuid = serializers.ReadOnlyField()
     
     class Meta:
         model = Inquilino
         fields = [
             # Atributos heredados de Persona
             'id', 'nombre', 'apellido', 'telefono', 'imagen', 'estado', 'sexo', 
-            'tipo', 'fecha_registro', 'CI', 'fecha_nacimiento',
+            'tipo', 'fecha_registro', 'CI', 'fecha_nacimiento', 'nombre_completo', 'luxand_uuid',
             # Atributos específicos de Inquilino
             'propietario', 'fecha_inicio', 'fecha_fin', 'estado_inquilino',
             # Campos calculados
             'propietario_nombre', 'propietario_ci'
         ]
-        read_only_fields = ['id', 'fecha_registro', 'tipo']
+        read_only_fields = ['id', 'fecha_registro', 'tipo', 'nombre_completo', 'luxand_uuid']
     
     def validate_fecha_fin(self, value):
         """
@@ -71,13 +73,15 @@ class InquilinoListSerializer(serializers.ModelSerializer):
     """
     propietario_nombre = serializers.CharField(source='propietario.nombre_completo', read_only=True)
     propietario_ci = serializers.CharField(source='propietario.CI', read_only=True)
+    nombre_completo = serializers.ReadOnlyField()
+    luxand_uuid = serializers.ReadOnlyField()
     
     class Meta:
         model = Inquilino
         fields = [
             # Atributos heredados de Persona
             'id', 'nombre', 'apellido', 'telefono', 'imagen', 'estado', 'sexo', 
-            'tipo', 'fecha_registro', 'CI', 'fecha_nacimiento',
+            'tipo', 'fecha_registro', 'CI', 'fecha_nacimiento', 'nombre_completo', 'luxand_uuid',
             # Atributos específicos de Inquilino
             'propietario', 'fecha_inicio', 'fecha_fin', 'estado_inquilino',
             # Campos calculados

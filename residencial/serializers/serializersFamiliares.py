@@ -12,19 +12,21 @@ class FamiliaresSerializer(serializers.ModelSerializer):
     """
     persona_relacionada_nombre = serializers.CharField(source='persona_relacionada.nombre_completo', read_only=True)
     persona_relacionada_ci = serializers.CharField(source='persona_relacionada.CI', read_only=True)
+    nombre_completo = serializers.ReadOnlyField()
+    luxand_uuid = serializers.ReadOnlyField()
     
     class Meta:
         model = Familiares
         fields = [
             # Atributos heredados de Persona
             'id', 'nombre', 'apellido', 'telefono', 'imagen', 'estado', 'sexo', 
-            'tipo', 'fecha_registro', 'CI', 'fecha_nacimiento',
+            'tipo', 'fecha_registro', 'CI', 'fecha_nacimiento', 'nombre_completo', 'luxand_uuid',
             # Atributos específicos de Familiares
             'persona_relacionada', 'parentesco',
             # Campos calculados
             'persona_relacionada_nombre', 'persona_relacionada_ci'
         ]
-        read_only_fields = ['id', 'fecha_registro', 'tipo']
+        read_only_fields = ['id', 'fecha_registro', 'tipo', 'nombre_completo', 'luxand_uuid']
     
     def validate(self, data):
         """
@@ -59,13 +61,15 @@ class FamiliaresListSerializer(serializers.ModelSerializer):
     """
     persona_relacionada_nombre = serializers.CharField(source='persona_relacionada.nombre_completo', read_only=True)
     persona_relacionada_ci = serializers.CharField(source='persona_relacionada.CI', read_only=True)
+    nombre_completo = serializers.ReadOnlyField()
+    luxand_uuid = serializers.ReadOnlyField()
     
     class Meta:
         model = Familiares
         fields = [
             # Atributos heredados de Persona
             'id', 'nombre', 'apellido', 'telefono', 'imagen', 'estado', 'sexo', 
-            'tipo', 'fecha_registro', 'CI', 'fecha_nacimiento',
+            'tipo', 'fecha_registro', 'CI', 'fecha_nacimiento', 'nombre_completo', 'luxand_uuid',
             # Atributos específicos de Familiares
             'persona_relacionada', 'parentesco',
             # Campos calculados
