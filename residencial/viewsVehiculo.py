@@ -5,7 +5,8 @@ from rest_framework.response import Response
 from .serializers.serializersVehiculo import VehiculoSerializer, PersonaAuxSerializers
 from .serializers.serializersBloque import BloqueSerializer
 from .serializers.serializersUnidad import UnidadSerializer, BloqueAuxSerializer
-from .modelsVehiculo import Vehiculo, Bloque, Unidad
+from .serializers.serializersIncidente import IncidenteSerializer
+from .modelsVehiculo import Vehiculo, Bloque, Unidad, incidente
 from decouple import config
 from .models import Persona
 from django.conf import settings
@@ -99,3 +100,6 @@ class BloqueAuxViewSet(viewsets.ModelViewSet):
     queryset = Bloque.objects.all()
     serializer_class = BloqueAuxSerializer
 
+class IncidenteViewSet(viewsets.ModelViewSet):
+    queryset = incidente.objects.all()
+    serializer_class = IncidenteSerializer

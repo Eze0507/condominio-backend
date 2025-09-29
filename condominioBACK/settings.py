@@ -15,6 +15,7 @@ from decouple import config
 import dj_database_url
 from datetime import timedelta
 import os
+import cloudinary
 
 
 
@@ -180,3 +181,17 @@ CORS_ALLOW_CREDENTIALS = False
 IMGBB_API_KEY = config('IMGBB_API_KEY', default='')
 PLATE_TOKEN = config("PLATE_TOKEN")
 PLATE_REGIONS = config("PLATE_REGIONS", default="bo")
+
+CLOUDINARY_CLOUD_NAME = config("CLOUDINARY_CLOUD_NAME", default="")
+CLOUDINARY_API_KEY = config("CLOUDINARY_API_KEY", default="")
+CLOUDINARY_API_SECRET = config("CLOUDINARY_API_SECRET", default="")
+
+cloudinary.config(
+    cloud_name=CLOUDINARY_CLOUD_NAME,
+    api_key=CLOUDINARY_API_KEY,
+    api_secret=CLOUDINARY_API_SECRET,
+    secure=True
+)
+STRIPE_SECRET_KEY = config("STRIPE_SECRET_KEY")
+STRIPE_PUBLISHABLE_KEY = config("STRIPE_PUBLISHABLE_KEY")
+FRONTEND_URL = config("FRONTEND_URL", default="http://127.0.0.1:5173")

@@ -80,3 +80,21 @@ class Unidad(models.Model):
     
     def __str__(self):
         return f"{self.codigo} - {self.numero}"
+
+class incidente(models.Model):
+    id = models.AutoField(primary_key=True)
+    propietario = models.ForeignKey('administracion.Persona', on_delete=models.CASCADE, related_name='incidentes_propietario', null=True, blank=True)
+    multa = models.ForeignKey('finanzas.multa', on_delete=models.CASCADE, related_name='incidentes_multa', null=True, blank=True)
+    descripcion = models.TextField()
+    fecha_incidente = models.DateTimeField()
+    fecha_registro = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        db_table = 'incidente'
+        verbose_name = "Incidente"
+        verbose_name_plural = "Incidentes"
+        
+    def __str__(self):
+        if self.propietario:
+            return f"Incidente {self.id} - Propietario: {self.propietario.nombre} {self.propietario.apellido}"
+        return f"Incidente {self.id} - Sin propietario"
